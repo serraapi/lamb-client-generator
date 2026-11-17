@@ -100,6 +100,15 @@
   .bloc-head label.bloc-title, .bloc-head h3.bloc-title { margin: 0; }
   .bloc .counter { font-weight: 400; }
   .bloc textarea::placeholder, .bloc input::placeholder { color: var(--text-secondary); opacity: 0.75; }
+  .esborrany {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    margin-bottom: 16px; padding: 12px 16px; border-radius: var(--radius);
+    border: 1px solid var(--border); border-left: 3px solid var(--accent); background-color: var(--card-bg);
+  }
+  .esborrany[hidden] { display: none; }
+  .esborrany p { margin: 0; font-size: 0.88rem; line-height: 1.4; }
+  .esborrany-accions { display: flex; gap: 8px; }
+  .esborrany .btn { padding: 6px 14px; font-size: 0.85rem; width: auto; margin: 0; }
   .fitxa-fila .v.falta { color: var(--error); font-weight: 400; font-style: italic; }
   .tab-nav { margin-left: auto; display: flex; align-items: center; gap: 4px; padding-left: 12px; }
   .tab-arrow {
@@ -842,6 +851,14 @@
     <input type="file" id="fileInput" accept=".json" class="hidden" onchange="importarJson(event)">
   </div>
 
+  <div class="esborrany" id="esborranyAvis" role="status" hidden>
+    <p id="esborranyText"></p>
+    <div class="esborrany-accions">
+      <button type="button" class="btn btn-primary btn-sm" id="esborranyRecuperar" onclick="recuperarEsborrany()"></button>
+      <button type="button" class="btn btn-secondary btn-sm" id="esborranyDescartar" onclick="descartarEsborrany()"></button>
+    </div>
+  </div>
+
   <div class="workspace">
     <main class="editor">
       <div class="card panels">
@@ -1097,7 +1114,7 @@
      Es pot modificar sense tocar la lògica (bloc de sota).
      ========================================================================= -->
 <script>
-const VERSIO = "v0.6.1";
+const VERSIO = "v0.6.2";
 
 /* Model que LAMB farà servir per a l'assistent (clau "llm" de les metadades).
    Ha de coincidir exactament amb un model habilitat a l'organització de LAMB;
@@ -3025,6 +3042,7 @@ function canviMode() {
 
 function refrescarVistes() {
   renderFitxa();
+  desarEsborrany();
   if ($("promptViewerBox").style.display === "block") $("promptViewerText").textContent = compilarSystemPrompt();
   if ($("previewJson").style.display === "block") $("previewJson").textContent = JSON.stringify(generarEstructuraJSON(), null, 2);
 }
@@ -3254,6 +3272,9 @@ const TEXTOS_V06 = {
     phOculta: "Un requisit per línia, començant amb un guió (-). El client només els revela si l'alumne pregunta bé.",
     anterior: "Pestanya anterior", seguent: "Pestanya següent",
     codiActivaAvancat: "Activa el mode avançat per canviar-lo",
+    locale: "ca-ES", esbSenseNom: "sense nom",
+    esbText: (nom, data) => `Tens un client a mitges («${nom}»), desat el ${data}. El vols recuperar?`,
+    esbRecuperar: "Recuperar", esbDescartar: "Descartar",
     fEmpresa: "l'empresa", fOberta: "la informació oberta", fOculta: "la informació oculta", i: "i",
     falta: l => `Per descarregar el client, falta ${l}.`, anarProjecte: "Anar a Projecte",
     infoClient: "Amb «Client dinàmic» activat, el nom i el càrrec canvien a cada conversa. Sense, el client és sempre la mateixa persona.",
@@ -3293,6 +3314,9 @@ const TEXTOS_V06 = {
     phOculta: "Un requisito por línea, empezando con un guion (-). El cliente solo los revela si el alumno pregunta bien.",
     anterior: "Pestaña anterior", seguent: "Pestaña siguiente",
     codiActivaAvancat: "Activa el modo avanzado para cambiarlo",
+    locale: "es-ES", esbSenseNom: "sin nombre",
+    esbText: (nom, data) => `Tienes un cliente a medias («${nom}»), guardado el ${data}. ¿Lo quieres recuperar?`,
+    esbRecuperar: "Recuperar", esbDescartar: "Descartar",
     fEmpresa: "la empresa", fOberta: "la información abierta", fOculta: "la información oculta", i: "y",
     falta: l => `Para descargar el cliente, falta ${l}.`, anarProjecte: "Ir a Proyecto",
     infoClient: "Con «Cliente dinámico» activado, el nombre y el cargo cambian en cada conversación. Sin él, el cliente es siempre la misma persona.",
@@ -3332,6 +3356,9 @@ const TEXTOS_V06 = {
     phOculta: "One requirement per line, starting with a dash (-). The client only reveals them if the student asks the right questions.",
     anterior: "Previous tab", seguent: "Next tab",
     codiActivaAvancat: "Turn on advanced mode to change it",
+    locale: "en-GB", esbSenseNom: "untitled",
+    esbText: (nom, data) => `You have an unfinished client («${nom}»), saved on ${data}. Do you want to restore it?`,
+    esbRecuperar: "Restore", esbDescartar: "Discard",
     fEmpresa: "the company", fOberta: "the open information", fOculta: "the hidden information", i: "and",
     falta: l => `To download the client, add ${l}.`, anarProjecte: "Go to Project",
     infoClient: "With «Dynamic client» on, the name and job title change in every conversation. Without it, the client is always the same person.",
@@ -3384,6 +3411,7 @@ function aplicarTextosV06() {
   $("ui_lbl_lang_hint").textContent = x.notaIdioma;
   $("ui_lbl_eval_code").textContent = x.codiTitol;
   $("ui_titol_identitat").textContent = x.titolIdentitat;
+  if (typeof renderAvisEsborrany === "function" && $("esborranyAvis")) renderAvisEsborrany();
   $("ui_titol_eixos").textContent = x.titolEixos;
   $("companyName").placeholder = x.phEmpresa;
   $("infoOberta").placeholder = x.phOberta;
@@ -3540,6 +3568,79 @@ function tancarVisor() {
   $("previewJson").style.display = "none";
 }
 
+/* ===== Desat automàtic del treball en curs (localStorage) =====
+   Només es desa si algun camp de text és diferent del de l'inici: tocar interruptors o nivells
+   no ho justifica. Quan es desa, es desa tot el client. En descarregar o copiar, s'esborra. */
+const CLAU_ESBORRANY = "generador_esborrany";
+const CAMPS_TEXT = ["assistantName", "companyName", "infoOberta", "infoOculta", "charName", "charRole", "freeTrait", "evalCode"];
+let textInicial = null;        // camps de text tal com eren en obrir la pàgina (o en l'última exportació)
+let esborranyPendent = null;   // esborrany trobat en obrir, a l'espera que el professor decideixi
+let temporitzadorDesat = null;
+
+const instantaniaText = () => Object.fromEntries(CAMPS_TEXT.map(id => [id, $(id).value.trim()]));
+
+function hiHaTextModificat() {
+  if (!textInicial) return false;
+  if (CAMPS_TEXT.some(id => $(id).value.trim() !== textInicial[id])) return true;
+  return Object.values(estat.perso || {}).some(p => p && Object.keys(p).length > 0);
+}
+
+function desarEsborrany() {
+  clearTimeout(temporitzadorDesat);
+  temporitzadorDesat = setTimeout(() => {
+    try {
+      if (hiHaTextModificat()) {
+        localStorage.setItem(CLAU_ESBORRANY, JSON.stringify({ desat: Date.now(), versio: VERSIO, dades: generarEstructuraJSON() }));
+      } else if (!esborranyPendent) {
+        localStorage.removeItem(CLAU_ESBORRANY);
+      }
+    } catch (e) { /* sense localStorage, simplement no es desa */ }
+  }, 600);
+}
+
+/* Després d'exportar, la feina ja és en un fitxer: fora l'esborrany i nou punt de partida */
+function feinaExportada() {
+  clearTimeout(temporitzadorDesat);
+  textInicial = instantaniaText();
+  if (!esborranyPendent) { try { localStorage.removeItem(CLAU_ESBORRANY); } catch (e) {} }
+}
+
+function llegirEsborrany() {
+  try {
+    const e = JSON.parse(localStorage.getItem(CLAU_ESBORRANY) || "null");
+    return e && e.dades && (e.dades._config || e.dades.system_prompt) ? e : null;
+  } catch (err) { return null; }
+}
+
+function renderAvisEsborrany() {
+  const avis = $("esborranyAvis");
+  avis.hidden = !esborranyPendent;
+  if (!esborranyPendent) return;
+  const x = v06(), d = esborranyPendent.dades;
+  const c = d._config || {};
+  const fitxer = textNet(d.name || "");
+  const nom = textNet(c.empresa || "") || (fitxer && fitxer !== "client" ? fitxer : "") || textNet(c.charName || "") || x.esbSenseNom;
+  const data = new Date(esborranyPendent.desat).toLocaleString(x.locale, { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
+  $("esborranyText").textContent = x.esbText(nom, data);
+  $("esborranyRecuperar").textContent = x.esbRecuperar;
+  $("esborranyDescartar").textContent = x.esbDescartar;
+}
+
+function recuperarEsborrany() {
+  if (!esborranyPendent) return;
+  const dades = esborranyPendent.dades;
+  esborranyPendent = null;
+  try { carregarDadesClient(dades); } catch (e) { console.error("No s'ha pogut recuperar l'esborrany:", e); }
+  renderAvisEsborrany();
+  desarEsborrany();
+}
+
+function descartarEsborrany() {
+  esborranyPendent = null;
+  renderAvisEsborrany();
+  if (!hiHaTextModificat()) { try { localStorage.removeItem(CLAU_ESBORRANY); } catch (e) {} }
+}
+
 /* ===== Codi per activar l'avaluació ===== */
 /* Retorna el problema del codi (clau de text) o null si és vàlid */
 function problemaCodi(codi) {
@@ -3672,6 +3773,7 @@ function generarEstructuraJSON() {
 
 function descarregarJson() {
   if (campsQueFalten().length) return;
+  feinaExportada();
   const dades = generarEstructuraJSON();
   const blob = new Blob([JSON.stringify(dades, null, 2)], { type: "application/json" });
   const link = document.createElement("a");
@@ -3696,6 +3798,7 @@ function feedbackBoto(btn, text, ok, original) {
 
 function copiarPrompt() {
   if (campsQueFalten().length) return;
+  feinaExportada();
   const text = compilarSystemPrompt();
   const btn = $("ui_btn_copy");
   const exit = () => feedbackBoto(btn, t().copied, true, () => t().btnCopy);
@@ -3911,6 +4014,20 @@ function importarDesDePrompt(data) {
   if (dinamic && avancat) estat.dinSel.genere = ALEATORI;
 }
 
+/* Carrega un client (JSON del generador) a l'editor. La fan servir la importació i la recuperació de l'esborrany. */
+function carregarDadesClient(data) {
+  if (!data || (!data._config && !data.system_prompt)) throw new Error("Estructura no reconeguda");
+  // Valors per defecte de les opcions noves; la importació els sobreescriu si en té
+  estat.dinSel = dinPerDefecte();
+  estat.arees = totesLesArees();
+  estat.perso = {};
+  $("randomIdentity").checked = false;   // v0.6.2: abans quedava activat si el JSON no deia res
+  $("advancedMode").checked = false;
+  if (data._config) importarDesDeConfig(data._config);
+  else importarDesDePrompt(data);
+  renderitzar();
+}
+
 function importarJson(event) {
   const file = event.target.files[0];
   if (!file) return;
@@ -3919,16 +4036,7 @@ function importarJson(event) {
   reader.onload = e => {
     try {
       const data = JSON.parse(e.target.result);
-      if (!data || (!data._config && !data.system_prompt)) throw new Error("Estructura no reconeguda");
-      // Valors per defecte de les opcions noves; la importació els sobreescriu si en té
-      estat.dinSel = dinPerDefecte();
-      estat.arees = totesLesArees();
-      estat.perso = {};
-      $("randomIdentity").checked = true;
-      $("advancedMode").checked = false;
-      if (data._config) importarDesDeConfig(data._config);
-      else importarDesDePrompt(data);
-      renderitzar();
+      carregarDadesClient(data);
       feedbackBoto(btn, t().imported, true, () => t().btnImport);
     } catch (err) {
       console.error("Error en importar JSON:", err);
@@ -3982,6 +4090,9 @@ function inicialitzarUI() {
   activarPestanya("projecte");
   aplicarTextosUI();
   actualitzarNotaLlengua();
+  textInicial = instantaniaText();
+  esborranyPendent = llegirEsborrany();
+  renderAvisEsborrany();
 }
 
 window.addEventListener("DOMContentLoaded", inicialitzarUI);
