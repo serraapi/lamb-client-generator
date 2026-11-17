@@ -25,7 +25,7 @@ No cal instal·lar res: n'hi ha prou d'obrir el fitxer HTML en un navegador.
 * **Mode avançat:** permet editar els textos de cada eix i nivell (conducta, marcadors i guia de maneig) i canviar el codi que activa l'avaluació.
 * **Mode avaluació:** quan l'alumne escriu el codi d'avaluació («Code 42» per defecte), el client surt del rol i avalua l'entrevista amb una rúbrica de 9 criteris (nota sobre 100), els punts forts i febles, i una explicació del client que li ha tocat i com tractar-lo.
 * **Interfície en català, castellà i anglès,** amb tema clar i fosc.
-* * **Recuperació de la feina en curs:** si tanques la pàgina amb un client a mitges, en tornar-la a obrir el generador t'ofereix recuperar-lo.
+* **Recuperació de la feina en curs:** si tanques la pàgina amb un client a mitges, en tornar-la a obrir el generador t'ofereix recuperar-lo.
 
 ### Com es fa servir
 
