@@ -190,7 +190,10 @@
   .visor-modes { width: 270px; padding: 2px; }
   .visor-modes .seg-btn { padding: 4px 8px; font-size: 0.76rem; }
   .prompt-viewer-text[hidden], .lectura[hidden] { display: none; }
-  .lectura { display: grid; grid-template-columns: 230px minmax(0, 1fr); height: min(68vh, 760px); }
+  /* Els tres modes del visor tenen exactament la mateixa alçada: canviar de mode no fa saltar la finestra */
+  #visorOverlay { --alcada-visor: min(68vh, 760px); }
+  #visorOverlay .prompt-viewer-text, #visorOverlay .visor-json, #visorOverlay .lectura { height: var(--alcada-visor); max-height: none; box-sizing: border-box; }
+  .lectura { display: grid; grid-template-columns: 230px minmax(0, 1fr); }
   .lectura-index { overflow-y: auto; padding: 10px 8px; border-right: 1px solid var(--border); display: flex; flex-direction: column; gap: 1px; }
   .lectura-entrada {
     text-align: left; padding: 7px 10px; border: none; border-radius: 6px; background: none;
@@ -224,12 +227,13 @@
   .lectura-nav { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 16px; border-top: 1px solid var(--border); font-size: 0.8rem; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
   .lectura-nav .btn:disabled { opacity: 0.4; cursor: default; }
   @media (max-width: 720px) {
-    .lectura { grid-template-columns: 1fr; height: min(72vh, 760px); }
+    .lectura { grid-template-columns: 1fr; }
+    #visorOverlay { --alcada-visor: min(72vh, 760px); }
     .lectura-index { display: none; }
     .lectura-text { padding: 16px 16px 20px; }
   }
   #visorOverlay #previewJson { margin: 0; }
-  .visor-json { display: block; margin: 0; border: none; border-radius: 0; max-height: min(68vh, 760px); height: min(68vh, 760px); overflow: auto; padding: 16px 20px; }
+  .visor-json { display: block; margin: 0; border: none; border-radius: 0; overflow: auto; padding: 16px 20px; }
   .visor-json[hidden] { display: none; }
 
   @media (max-width: 980px) {
@@ -1026,6 +1030,8 @@
 
   /* Mode de selecció: caselles, agafador, barra d'accions i arrossegament */
   #traitsContainer, .rb-items { position: relative; }
+  .nota-switch { margin: 0 0 10px; }
+  #areasBlock .nota-switch { margin: 8px 0 0; }
   .sel-controls { display: none; align-items: center; gap: 4px; flex: none; }
   .ordenable .sel-controls, .rb-items .sel-controls { display: inline-flex; }
   .sel-casella { display: none; }
@@ -1201,10 +1207,6 @@
                 <span class="track"></span>
                 <span id="ui_lbl_random_identity"></span>
               </label>
-              <div class="tooltip-container">
-                <span class="tooltip-icon" tabindex="0">?</span>
-                <div class="tooltip-box" id="ui_tt_random_identity"></div>
-              </div>
             </div>
           </div>
         <div id="areasBlock" class="collapsible">
@@ -1214,6 +1216,7 @@
               <span class="lang-default-note" id="ui_lbl_areas_hint"></span>
             </div>
             <div class="area-group" id="areasContainer"></div>
+            <p class="field-note nota-switch" id="clientDinNota"></p>
           </div>
         </div>
     <!-- Identitat fixa (en mode dinàmic, només si el nom i el càrrec no són aleatoris) -->
@@ -1249,10 +1252,6 @@
                   <span class="track"></span>
                   <span id="ui_lbl_dynamic"></span>
                 </label>
-                <div class="tooltip-container">
-                  <span class="tooltip-icon" tabindex="0">?</span>
-                  <div class="tooltip-box" id="ui_tt_dynamic"></div>
-                </div>
               </div>
               <!-- v0.6.4: el mode avançat només afecta els eixos de personalitat -->
               <div class="switch-row bloc-ctrl">
@@ -1268,6 +1267,8 @@
               </div>
             </div>
           </div>
+          <!-- v0.6.4: nota curta en lloc del «?»; només es veu amb la personalitat dinàmica -->
+          <div id="dynNota" class="collapsible collapsed"><div class="collapsible-inner"><p class="field-note nota-switch" id="dynNotaText"></p></div></div>
           <!-- Trets. Amb la personalitat dinàmica, cada eix pot ser aleatori o tenir un nivell fix -->
           <div id="traitsBlock">
             <div class="sel-barra" id="traitsSelBar" hidden></div>
@@ -1296,10 +1297,6 @@
                 <span class="track"></span>
                 <span id="ui_lbl_force_lang"></span>
               </label>
-              <div class="tooltip-container">
-                <span class="tooltip-icon" tabindex="0">?</span>
-                <div class="tooltip-box" id="ui_tt_force_lang"></div>
-              </div>
             </div>
           </div>
           <div class="lang-checkbox-group">
@@ -1319,10 +1316,6 @@
                   <input type="checkbox" id="meetingClose" checked aria-labelledby="ui_lbl_meeting">
                   <span class="track"></span>
                 </label>
-                <div class="tooltip-container">
-                  <span class="tooltip-icon" tabindex="0">?</span>
-                  <div class="tooltip-box" id="ui_tt_meeting"></div>
-                </div>
               </div>
             </div>
             <div class="meeting-nums" id="meetingNums">
@@ -2542,18 +2535,15 @@ const UI_LANGS = {
     lblAgentLangs: "Idiomes de comunicació del client",
     lblLangHint: "(Per defecte: català)",
     lblForceLang: "Forçar idiomes",
-    ttForceLang: "El client només acceptarà parlar en els idiomes seleccionats. Si l'usuari fa servir una altra llengua, s'hi negarà i demanarà canviar a un idioma permès.",
     secTraits: "Personatge i trets",
     btnRandomTraits: "Aleatoritzar",
     lblAdvanced: "Mode avançat",
     ttAdvanced: "Permet editar el text de cada eix, afegir trets propis i eliminar-ne. Si el desactives, el client torna als sis eixos originals, però els canvis es conserven.",
     lblDynamic: "Personalitat dinàmica",
-    ttDynamic: "A cada conversa nova, l'assistent sorteja els eixos que deixis en «Aleatori». Els altres eixos, el nom i el cas es mantenen.",
     bannerDynamic: "Els eixos en «Aleatori» canvien a cada conversa.",
     segRandom: "Aleatori",
     descRandom: "Canvia a cada conversa entre els {n} nivells.",
     lblRandomIdentity: "Client dinàmic",
-    ttRandomIdentity: "L'assistent s'inventa una persona diferent a cada conversa, d'una de les àrees que marquis. La personalitat no canvia si no actives també «Personalitat dinàmica».",
     lblAreas: "Àrees on pot treballar el client:",
     lblAreasHint: "(Per defecte: totes)",
     ttGear: "Editar el text d'aquest eix",
@@ -2573,7 +2563,6 @@ const UI_LANGS = {
     ttRandomCase: "Omple el nom intern, l'empresa i la informació del cas amb un exemple de la Biblioteca de Projectes.",
     confirmRandomCase: "Segur? Substituirà el cas que has escrit",
     lblMeeting: "Tancament de la reunió per torns",
-    ttMeeting: "El client compta els seus missatges. Al torn d'avís diu que té pressa; uns torns després fa un resum, demana confirmació i s'acomiada.",
     lblMeetingWarn: "Torn d'avís",
     lblMeetingExtra: "Torns fins al tancament",
     noteMeeting: (a, t) => `Al torn ${a} avisa que té pressa; al torn ${t} fa el resum i demana confirmació; al torn ${t + 1} s'acomiada.`,
@@ -2609,18 +2598,15 @@ const UI_LANGS = {
     lblAgentLangs: "Idiomas de comunicación del cliente",
     lblLangHint: "(Por defecto: catalán)",
     lblForceLang: "Forzar idiomas",
-    ttForceLang: "El cliente solo aceptará hablar en los idiomas seleccionados. Si el usuario usa otra lengua, se negará y pedirá cambiar a un idioma permitido.",
     secTraits: "Personaje y rasgos",
     btnRandomTraits: "Aleatorizar",
     lblAdvanced: "Modo avanzado",
     ttAdvanced: "Permite editar el texto de cada eje, añadir rasgos propios y eliminar ejes. Si lo desactivas, el cliente vuelve a los seis ejes originales, pero los cambios se conservan.",
     lblDynamic: "Personalidad dinámica",
-    ttDynamic: "En cada conversación nueva, el asistente sortea los ejes que dejes en «Aleatorio». Los demás ejes, el nombre y el caso se mantienen.",
     bannerDynamic: "Los ejes en «Aleatorio» cambian en cada conversación.",
     segRandom: "Aleatorio",
     descRandom: "Cambia en cada conversación entre los {n} niveles.",
     lblRandomIdentity: "Cliente dinámico",
-    ttRandomIdentity: "El asistente se inventa una persona distinta en cada conversación, de una de las áreas que marques. La personalidad no cambia si no activas también «Personalidad dinámica».",
     lblAreas: "Áreas en las que puede trabajar el cliente:",
     lblAreasHint: "(Por defecto: todas)",
     ttGear: "Editar el texto de este eje",
@@ -2640,7 +2626,6 @@ const UI_LANGS = {
     ttRandomCase: "Rellena el nombre interno, la empresa y la información del caso con un ejemplo de la Biblioteca de Proyectos.",
     confirmRandomCase: "¿Seguro? Sustituirá el caso que has escrito",
     lblMeeting: "Cierre de la reunión por turnos",
-    ttMeeting: "El cliente cuenta sus mensajes. En el turno de aviso dice que tiene prisa; unos turnos después hace un resumen, pide confirmación y se despide.",
     lblMeetingWarn: "Turno de aviso",
     lblMeetingExtra: "Turnos hasta el cierre",
     noteMeeting: (a, t) => `En el turno ${a} avisa de que tiene prisa; en el turno ${t} hace el resumen y pide confirmación; en el turno ${t + 1} se despide.`,
@@ -2676,18 +2661,15 @@ const UI_LANGS = {
     lblAgentLangs: "Client communication languages",
     lblLangHint: "(Default: Catalan)",
     lblForceLang: "Force languages",
-    ttForceLang: "The client will only speak the selected languages. If the user writes in another language, the client refuses and asks to switch to an allowed one.",
     secTraits: "Character and traits",
     btnRandomTraits: "Randomise",
     lblAdvanced: "Advanced mode",
     ttAdvanced: "Lets you edit each axis's text, add your own traits and remove axes. If you turn it off, the client goes back to the six original axes, but your changes are kept.",
     lblDynamic: "Dynamic personality",
-    ttDynamic: "In every new conversation, the assistant draws the axes you leave on «Random». The other axes, the name and the case stay the same.",
     bannerDynamic: "Axes set to «Random» change in every conversation.",
     segRandom: "Random",
     descRandom: "Changes in every conversation among the {n} levels.",
     lblRandomIdentity: "Dynamic client",
-    ttRandomIdentity: "The assistant makes up a different person in every conversation, from one of the areas you tick. The personality only changes if «Dynamic personality» is also on.",
     lblAreas: "Areas the client may work in:",
     lblAreasHint: "(Default: all)",
     ttGear: "Edit this axis's text",
@@ -2707,7 +2689,6 @@ const UI_LANGS = {
     ttRandomCase: "Fills in the internal name, company and case information with an example from the Project Library.",
     confirmRandomCase: "Sure? It will replace your case",
     lblMeeting: "Close the meeting after a number of turns",
-    ttMeeting: "The client counts its messages. At the warning turn it says it is short of time; a few turns later it summarises, asks for confirmation and says goodbye.",
     lblMeetingWarn: "Warning turn",
     lblMeetingExtra: "Turns until closing",
     noteMeeting: (a, t) => `At turn ${a} it warns it is short of time; at turn ${t} it summarises and asks for confirmation; at turn ${t + 1} it says goodbye.`,
@@ -3185,11 +3166,10 @@ function aplicarTextosUI() {
     ui_subtitle: x.subtitle, ui_lbl_assistant: x.lblAssistant,
     ui_lbl_charname: x.lblCharName, ui_btn_random_name: x.btnRandomName, ui_lbl_charrole: x.lblCharRole, ui_lbl_company: x.lblCompany, ui_note_role: x.noteRole,
     ui_lbl_agent_langs: x.lblAgentLangs, ui_lbl_lang_hint: x.lblLangHint, ui_lbl_force_lang: x.lblForceLang,
-    ui_tt_force_lang: x.ttForceLang,
     ui_lbl_advanced: x.lblAdvanced, ui_tt_advanced: x.ttAdvanced, ui_lbl_dynamic: x.lblDynamic,
-    ui_tt_dynamic: x.ttDynamic, ui_btn_random_role: x.btnRandomRole, ui_btn_random_case: x.btnRandomCase,
-    ui_lbl_random_identity: x.lblRandomIdentity, ui_tt_random_identity: x.ttRandomIdentity, ui_lbl_areas: x.lblAreas, ui_lbl_areas_hint: x.lblAreasHint,
-    ui_lbl_meeting: x.lblMeeting, ui_tt_meeting: x.ttMeeting, ui_lbl_meeting_warn: x.lblMeetingWarn, ui_lbl_meeting_extra: x.lblMeetingExtra,
+    ui_btn_random_role: x.btnRandomRole, ui_btn_random_case: x.btnRandomCase,
+    ui_lbl_random_identity: x.lblRandomIdentity, ui_lbl_areas: x.lblAreas, ui_lbl_areas_hint: x.lblAreasHint,
+    ui_lbl_meeting: x.lblMeeting, ui_lbl_meeting_warn: x.lblMeetingWarn, ui_lbl_meeting_extra: x.lblMeetingExtra,
     ui_lbl_free: x.lblFree, ui_note_free: x.noteFree, ui_sec_case: x.secCase, ui_lbl_open: x.lblOpen,
     ui_lbl_hidden: x.lblHidden, ui_btn_download: x.btnDownload, ui_btn_import: x.btnImport,
     ui_btn_copy: x.btnCopy, ui_lbl_viewer_title: x.lblViewerTitle
@@ -3242,6 +3222,7 @@ function renderitzar() {
   $("traitsContainer").classList.toggle("dyn-traits", din);
 
   normalitzarSeleccions();
+  plegar("dynNota", !esDinamic());
   renderTancament();
   renderCodi();
   renderRubricaBloc();
@@ -3853,8 +3834,10 @@ function actualitzarComptador() {
 
 function actualitzarNotaLlengua() {
   const cap = !$("lang_cat").checked && !$("lang_es").checked && !$("lang_en").checked;
-  // v0.6: ara és una nota sota les caselles; si no cal, s'amaga del tot i no deixa forat
-  $("ui_lbl_lang_hint").style.display = cap ? "" : "none";
+  // Nota sota les caselles: sense cap idioma, què passa; amb «Forçar idiomes», què vol dir (v0.6.4, en lloc del «?»)
+  const text = cap ? v06().notaIdioma : $("forceLanguages").checked ? v06().notaForcat : "";
+  $("ui_lbl_lang_hint").textContent = text;
+  $("ui_lbl_lang_hint").style.display = text ? "" : "none";
 }
 
 /* Nom aleatori. Si el càrrec actual és de la llista, passa a la forma del nou gènere. */
@@ -4260,6 +4243,7 @@ const TEXTOS_V06 = {
     gAvaluacio: "Avaluació",
     // v0.6.4
     codiPropi: "Personalitzat",
+    notaDinamica: "Els eixos en «Aleatori» es sortegen a cada conversa nova.", notaClientDinamic: "A cada conversa, una persona diferent d'una de les àrees marcades.", notaForcat: "El client no canvia a cap idioma que no estigui marcat.",
     idiomaAlumne: "El de l'alumne",
     visorLectura: "Lectura", visorText: "Text pla", anterior: "Anterior", seguent: "Següent", liniaOculta: "Línia oculta",
     selTot: "Seleccionar tot", selCap: "Desmarcar tot",
@@ -4357,6 +4341,7 @@ const TEXTOS_V06 = {
     gAvaluacio: "Evaluación",
     // v0.6.4
     codiPropi: "Personalizado",
+    notaDinamica: "Los ejes en «Aleatorio» se sortean en cada conversación nueva.", notaClientDinamic: "En cada conversación, una persona distinta de una de las áreas marcadas.", notaForcat: "El cliente no cambia a ningún idioma que no esté marcado.",
     idiomaAlumne: "El del alumno",
     visorLectura: "Lectura", visorText: "Texto plano", anterior: "Anterior", seguent: "Siguiente", liniaOculta: "Línea oculta",
     selTot: "Seleccionar todo", selCap: "Desmarcar todo",
@@ -4454,6 +4439,7 @@ const TEXTOS_V06 = {
     gAvaluacio: "Assessment",
     // v0.6.4
     codiPropi: "Custom",
+    notaDinamica: "Axes set to «Random» are drawn again in every new conversation.", notaClientDinamic: "Each conversation, a different person from one of the ticked areas.", notaForcat: "The client won't switch to any language that isn't ticked.",
     idiomaAlumne: "The student's",
     visorLectura: "Reading", visorText: "Plain text", anterior: "Previous", seguent: "Next", liniaOculta: "Hidden line",
     selTot: "Select all", selCap: "Clear all",
@@ -4547,7 +4533,9 @@ function aplicarTextosV06() {
   }
   $("ui_fitxa_title").textContent = x.fitxa;
   $("ui_lbl_assistant").textContent = x.nomFitxer;
-  $("ui_lbl_lang_hint").textContent = x.notaIdioma;
+  actualitzarNotaLlengua();
+  $("dynNotaText").textContent = x.notaDinamica;
+  $("clientDinNota").textContent = x.notaClientDinamic;
   $("ui_lbl_eval_code").textContent = x.codiTitol;
   $("ui_lbl_codi_propi").textContent = x.codiPropi;
   $("ui_lbl_rubrica").textContent = x.rbTitol;
